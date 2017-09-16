@@ -11,12 +11,19 @@
 #include <iostream>
 #include <thread>
 
+#define NOMINMAX
+#include <Windows.h>
+#include <io.h>
+#include <fcntl.h>
+
 using namespace args;
 using namespace std;
 
 TEV_NAMESPACE_BEGIN
 
 int mainFunc(int argc, char* argv[]) {
+    auto ipc = make_shared<Ipc>();
+
     Imf::setGlobalThreadCount(thread::hardware_concurrency());
 
     ArgumentParser parser{
@@ -126,8 +133,6 @@ int mainFunc(int argc, char* argv[]) {
         return -2;
     }
 
-    auto ipc = make_shared<Ipc>();
-
     // If we're not the primary instance, simply send the to-be-opened images
     // to the primary instance.
     if (!ipc->isPrimaryInstance()) {
@@ -216,3 +221,31 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 }
+
+#ifdef _WIN32
+bool reconnectIo(bool openNewConsole) {
+    bool madeConsole = false;
+    if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+        if (!openNewConsole)
+            return false;
+
+        madeConsole = true;
+        if (!AllocConsole())
+            return false;
+    }
+
+    freopen("CON", "w", stdout);
+    freopen("CON", "w", stderr);
+    freopen("CON", "r", stdin);
+
+    // C++ streams to console
+    ios::sync_with_stdio();
+
+    return madeConsole;
+}
+
+int APIENTRY WinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, LPSTR /*lpCmdLine*/, int /*nCmdShow*/) {
+    reconnectIo(false);
+    return main(__argc, __argv);
+}
+#endif

@@ -163,15 +163,21 @@ string absolutePath(string path) {
 
 void toggleConsole() {
 #ifdef _WIN32
-    HWND console = GetConsoleWindow();
-    DWORD consoleProcessId;
-    GetWindowThreadProcessId(console, &consoleProcessId);
+    bool madeConsole = false;
+    if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+        madeConsole = true;
+        if (!AllocConsole())
+            return;
 
-    // Only toggle the console if it was actually spawned by tev. If we are
-    // running in a foreign console, then we should leave it be.
-    if (GetCurrentProcessId() == consoleProcessId) {
-        ShowWindow(console, IsWindowVisible(console) ? SW_HIDE : SW_SHOW);
+        tev::toggleConsole();
     }
+
+    freopen("CON", "w", stdout);
+    freopen("CON", "w", stderr);
+    freopen("CON", "r", stdin);
+
+    // C++ streams to console
+    ios::sync_with_stdio();
 #endif
 }
 
